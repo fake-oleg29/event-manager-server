@@ -1,0 +1,98 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  status    String?
+  role      Role?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  events Event[]
+  tickets Ticket[]
+}
+
+model Event {
+  id        String   @id @default(uuid())
+  title     String
+  description String
+  startDate DateTime
+  endDate DateTime
+  imageUrls String[]
+  duration Decimal @db.Decimal(10, 2)
+  price Decimal @db.Decimal(10, 2)
+  capacity Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  organizerId String
+  organizer User @relation(fields: [organizerId], references: [id])
+
+  tickets Ticket[]
+
+  venueId String
+  venue Venue @relation(fields: [venueId], references: [id])
+}
+
+model Venue {
+  id String @id @default(uuid())
+  name String
+  address String
+  city String
+  zip String
+  region String
+  country String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  events Event[]
+}
+
+model Ticket {
+  id String @id @default(uuid())
+  type TicketType
+  price Decimal @db.Decimal(10, 2)
+  seatNumber String
+  status TicketStatus
+  purchaseDate DateTime
+
+  eventId String
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId String
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TicketType {
+  Standard
+  VIP
+}
+
+enum TicketStatus {
+  Reserved
+  Paid
+  Used
+  Cancelled
+}
+enum Role {
+  Admin
+  Client
+  Organizer
+}
