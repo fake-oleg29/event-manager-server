@@ -10,11 +10,13 @@ import { TicketModule } from './ticket/ticket.module';
 import { StripeModule } from './stripe/stripe.module';
 import { ConfigModule } from '@nestjs/config';
 import { VenueModule } from './venue/venue.module';
+import { SupabaseModule } from './supabase/supabase.module';
 @Module({
   imports: [
     PrismaModule,
     AuthModule,
     UserModule,
+    SupabaseModule,
     EventModule,
     TicketModule,
     ConfigModule.forRoot({

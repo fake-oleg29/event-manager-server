@@ -31,6 +31,30 @@
 $ npm install
 ```
 
+### Environment variables
+
+The project uses both Prisma and Supabase. Create a `.env` file at the project root with at least the following values:
+
+```dotenv
+DATABASE_URL=postgresql://... (your Supabase database connection)
+SUPABASE_URL=https://<your-project>.supabase.co
+SUPABASE_PUBLIC_KEY=<anon-or-service-role-key>
+SUPABASE_SERVER_ROLE_KEY=<service-role-key>
+```
+
+You can obtain these from the Supabase dashboard under _Settings → API_.
+
+Supabase will be available via the injected `SupabaseService` once the application starts.
+
+When an event is created through the API the application now:
+
+- Uses a single shared Supabase Storage bucket called `event-images`
+- Uploads any attached files into that bucket under the folder `<eventId>/`
+- Stores public URLs for the uploaded images in the event's `imageUrls` field
+
+This behaviour is implemented in `EventService#createEvent` and `EventService#updateEvent`
+and requires the server‑role key to be configured in the environment.
+
 ## Compile and run the project
 
 ```bash
