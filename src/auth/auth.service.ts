@@ -3,12 +3,14 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { UserService } from 'src/user/user.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import * as jwt from 'jsonwebtoken';
 import * as bcrypt from 'bcrypt';
+import { SupabaseService } from 'src/supabase/supabase.service';
 
 export class Auth {
   email: string;
@@ -22,6 +24,7 @@ export class AuthService {
   constructor(
     private readonly userService: UserService,
     private readonly prisma: PrismaService,
+    private readonly supabase: SupabaseService,
   ) {}
 
   async login(auth: Auth): Promise<any> {
@@ -62,6 +65,25 @@ export class AuthService {
       name: user.name,
       role: user.role,
     });
+
+    // mirror the user in Supabase Auth (server role key must be set)
+    try {
+      const { data, error } = await this.supabase
+        .getClient()
+        .auth.admin.createUser({
+          email: user.email,
+          password: user.password,
+        });
+
+      if (error) {
+        // this failure shouldn't block the primary registration, but log it
+        console.error('Supabase auth createUser error:', error.message);
+      } else {
+        console.log('Supabase auth user created:', data);
+      }
+    } catch (err) {
+      console.error('Unexpected Supabase error', err);
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _password, ...userWithoutPassword } = newUser;

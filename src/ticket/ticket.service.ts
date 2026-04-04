@@ -16,7 +16,6 @@ export class TicketService {
         endDate: true,
         duration: true,
         price: true,
-        imageUrls: true,
         venue: {
           select: {
             id: true,

@@ -32,7 +32,6 @@ model Event {
   description String
   startDate DateTime
   endDate DateTime
-  imageUrls String[]
   duration Decimal @db.Decimal(10, 2)
   price Decimal @db.Decimal(10, 2)
   capacity Int

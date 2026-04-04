@@ -31,21 +31,17 @@ export class CreateEventDto {
   @Type(() => Date)
   endDate: Date;
 
-  @IsArray()
-  @IsNotEmpty()
-  imageUrls: string[];
+  @IsNumber()
+  // @IsNotEmpty()
+  duration: number = 1;
 
   @IsNumber()
-  @IsNotEmpty()
-  duration: number;
+  // @IsNotEmpty()
+  price: number = 0;
 
   @IsNumber()
-  @IsNotEmpty()
-  price: number;
-
-  @IsNumber()
-  @IsNotEmpty()
-  capacity: number;
+  // @IsNotEmpty()
+  capacity: number = 10;
 
   @IsString()
   @IsOptional()

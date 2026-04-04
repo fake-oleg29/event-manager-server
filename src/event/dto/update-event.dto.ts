@@ -2,7 +2,6 @@ import {
   IsString,
   IsDate,
   IsOptional,
-  IsArray,
   IsNumber,
   IsNotEmpty,
 } from 'class-validator';
@@ -30,10 +29,6 @@ export class UpdateEventDto {
   @IsDate()
   @Type(() => Date)
   endDate?: Date;
-
-  @IsArray()
-  @IsOptional()
-  imageUrls?: string[];
 
   @IsNumber()
   @IsOptional()

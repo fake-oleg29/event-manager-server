@@ -50,9 +50,9 @@ When an event is created through the API the application now:
 
 - Uses a single shared Supabase Storage bucket called `event-images`
 - Uploads any attached files into that bucket under the folder `<eventId>/`
-- Stores public URLs for the uploaded images in the event's `imageUrls` field
+- Exposes image URLs to clients by listing objects in that folder (see `EventService#getEventImages`)
 
-This behaviour is implemented in `EventService#createEvent` and `EventService#updateEvent`
+This behaviour is implemented in `EventService#createEvent` (upload) and `EventService#getEventImages` (listing)
 and requires the server‑role key to be configured in the environment.
 
 ## Compile and run the project

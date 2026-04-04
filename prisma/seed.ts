@@ -131,10 +131,6 @@ async function main() {
       description: 'Неймовірний вечір живої музики з найкращими хітами',
       startDate: new Date('2026-03-15T19:00:00'),
       endDate: new Date('2026-03-15T23:00:00'),
-      imageUrls: [
-        'https://example.com/rock-concert-1.jpg',
-        'https://example.com/rock-concert-2.jpg',
-      ],
       duration: new Decimal(4),
       price: new Decimal(500),
       capacity: 5000,
@@ -149,7 +145,6 @@ async function main() {
       description: 'Класична постановка шекспірівського шедевру',
       startDate: new Date('2026-04-20T18:00:00'),
       endDate: new Date('2026-04-20T21:00:00'),
-      imageUrls: ['https://example.com/hamlet.jpg'],
       duration: new Decimal(3),
       price: new Decimal(300),
       capacity: 800,
@@ -164,11 +159,6 @@ async function main() {
       description: 'Найбільша конференція про інновації та технології',
       startDate: new Date('2026-05-10T09:00:00'),
       endDate: new Date('2026-05-12T18:00:00'),
-      imageUrls: [
-        'https://example.com/techfest-1.jpg',
-        'https://example.com/techfest-2.jpg',
-        'https://example.com/techfest-3.jpg',
-      ],
       duration: new Decimal(72),
       price: new Decimal(1500),
       capacity: 2000,
@@ -183,7 +173,6 @@ async function main() {
       description: 'Скуштуйте найкращі страви від локальних шеф-кухарів',
       startDate: new Date('2026-06-01T12:00:00'),
       endDate: new Date('2026-06-02T22:00:00'),
-      imageUrls: ['https://example.com/food-fest.jpg'],
       duration: new Decimal(34),
       price: new Decimal(0), // Безкоштовний вхід
       capacity: 10000,
