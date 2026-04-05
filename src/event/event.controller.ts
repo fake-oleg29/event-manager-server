@@ -8,28 +8,31 @@ import {
   HttpCode,
   Put,
   UseInterceptors,
-  UploadedFile,
+  UploadedFiles,
+  Query,
 } from '@nestjs/common';
 import { EventService } from './event.service';
 import { CreateEventDto } from './dto/create-event.dto';
+import { UpdateEventDto } from './dto/update-event.dto';
+import { EventQueryDto } from './dto/event-query.dto';
 import { IEvent } from './interfaces/type';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 
 @Controller('events')
 export class EventController {
   constructor(private readonly eventService: EventService) {}
   @Post('')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FilesInterceptor('files', 3))
   async createEvent(
     @Body() createEventDto: CreateEventDto,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles() files: Express.Multer.File[],
   ): Promise<any> {
-    return this.eventService.createEvent(createEventDto, file);
+    return this.eventService.createEvent(createEventDto, files ?? []);
   }
 
   @Get('')
-  async getEvents(): Promise<IEvent[]> {
-    return this.eventService.getEvents();
+  async getEvents(@Query() query: EventQueryDto): Promise<IEvent[]> {
+    return this.eventService.getEvents(query);
   }
 
   @Get(':id')
@@ -49,10 +52,12 @@ export class EventController {
   }
 
   @Put(':id')
+  @UseInterceptors(FilesInterceptor('files', 3))
   async updateEvent(
     @Param('id') id: string,
-    @Body() updateEventDto: CreateEventDto,
+    @Body() updateEventDto: UpdateEventDto,
+    @UploadedFiles() files: Express.Multer.File[],
   ): Promise<IEvent> {
-    return this.eventService.updateEvent(id, updateEventDto);
+    return this.eventService.updateEvent(id, updateEventDto, files ?? []);
   }
 }

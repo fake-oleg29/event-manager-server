@@ -1,13 +1,20 @@
-import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Query,
+} from '@nestjs/common';
 import { User, UserService } from './user.service';
+import { UserQueryDto } from './dto/user-query.dto';
 
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get()
-  async findAll(): Promise<User[]> {
-    return this.userService.findAll();
+  async findAll(@Query() query: UserQueryDto): Promise<User[]> {
+    return this.userService.findAll(query);
   }
 
   @Get(':id')

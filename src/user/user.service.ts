@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
+import { UserQueryDto } from './dto/user-query.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 export interface User {
@@ -36,8 +38,23 @@ export class UserService {
     });
     return user;
   }
-  async findAll(): Promise<User[]> {
+  private buildUserWhere(
+    query?: UserQueryDto,
+  ): Prisma.UserWhereInput | undefined {
+    const s = query?.search?.trim();
+    if (!s) return undefined;
+    return {
+      OR: [
+        { email: { contains: s, mode: 'insensitive' } },
+        { name: { contains: s, mode: 'insensitive' } },
+      ],
+    };
+  }
+
+  async findAll(query?: UserQueryDto): Promise<User[]> {
+    const where = this.buildUserWhere(query);
     const users = await this.prisma.user.findMany({
+      where,
       include: this.userWithCounts,
     });
     return users;

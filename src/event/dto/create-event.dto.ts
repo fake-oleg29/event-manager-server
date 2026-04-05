@@ -1,12 +1,11 @@
 import {
   IsString,
   IsDate,
-  IsOptional,
-  IsArray,
   IsNumber,
   IsNotEmpty,
+  IsUUID,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class CreateEventDto {
   @IsString()
@@ -32,18 +31,22 @@ export class CreateEventDto {
   endDate: Date;
 
   @IsNumber()
-  // @IsNotEmpty()
+  @Type(() => Number)
   duration: number = 1;
 
   @IsNumber()
-  // @IsNotEmpty()
+  @Type(() => Number)
   price: number = 0;
 
   @IsNumber()
-  // @IsNotEmpty()
+  @Type(() => Number)
   capacity: number = 10;
 
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
-  @IsOptional()
+  @IsNotEmpty({ message: 'Organizer is required' })
+  @IsUUID('4', { message: 'Organizer must be a valid user id' })
   organizerId: string;
 }

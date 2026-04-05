@@ -1,6 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
+import { EventQueryDto } from './dto/event-query.dto';
 import { IEvent } from './interfaces/type';
 import { TicketService } from '../ticket/ticket.service';
 import { VenueService } from 'src/venue/venue.service';
@@ -38,10 +44,26 @@ export class EventService {
     private readonly venueService: VenueService,
     private readonly supabase: SupabaseService,
   ) {}
+
+  private async assertOrganizerExists(organizerId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: organizerId },
+    });
+    if (!user) {
+      throw new BadRequestException('Organizer not found');
+    }
+    if (user.role !== Role.Organizer) {
+      throw new BadRequestException(
+        'The selected user must have the Organizer role',
+      );
+    }
+  }
+
   async createEvent(
     createEventDto: CreateEventDto,
-    file: Express.Multer.File,
+    files: Express.Multer.File[],
   ): Promise<any> {
+    await this.assertOrganizerExists(createEventDto.organizerId);
     const venue = await this.venueService.createVenue({
       location: createEventDto.venue,
     });
@@ -59,17 +81,21 @@ export class EventService {
       },
     });
 
-    const filePath = `${event.id}/${file.originalname}`;
+    const uploads = (files ?? []).filter((f) => f?.buffer?.length);
+    if (uploads.length > 3) {
+      throw new BadRequestException('You can upload at most 3 images');
+    }
 
-    const { error } = await this.supabase
-      .getClient()
-      .storage.from('event-images')
-      .upload(filePath, file.buffer, {
+    const bucket = this.supabase.getClient().storage.from('event-images');
+    for (const file of uploads) {
+      const safeBase = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `${event.id}/${randomUUID()}-${safeBase}`;
+      const { error } = await bucket.upload(filePath, file.buffer, {
         contentType: file.mimetype,
       });
-
-    if (error) {
-      throw error;
+      if (error) {
+        throw error;
+      }
     }
   }
 
@@ -98,8 +124,53 @@ export class EventService {
     return data.publicUrl;
   }
 
-  async getEvents(): Promise<IEvent[]> {
+  private buildEventWhere(
+    query?: EventQueryDto,
+  ): Prisma.EventWhereInput | undefined {
+    if (!query) return undefined;
+    const where: Prisma.EventWhereInput = {};
+
+    const trimmedSearch = query.search?.trim();
+    if (trimmedSearch) {
+      where.title = {
+        contains: trimmedSearch,
+        mode: 'insensitive',
+      };
+    }
+
+    if (query.organizerId) {
+      where.organizerId = query.organizerId;
+    }
+    if (query.venueId) {
+      where.venueId = query.venueId;
+    }
+    if (query.dateFrom || query.dateTo) {
+      where.startDate = {};
+      if (query.dateFrom) {
+        where.startDate.gte = new Date(`${query.dateFrom}T00:00:00.000Z`);
+      }
+      if (query.dateTo) {
+        where.startDate.lte = new Date(`${query.dateTo}T23:59:59.999Z`);
+      }
+    }
+    if (query.priceMin !== undefined || query.priceMax !== undefined) {
+      where.price = {};
+      if (query.priceMin !== undefined) {
+        where.price.gte = new Prisma.Decimal(query.priceMin);
+      }
+      if (query.priceMax !== undefined) {
+        where.price.lte = new Prisma.Decimal(query.priceMax);
+      }
+    }
+
+    return Object.keys(where).length ? where : undefined;
+  }
+
+  async getEvents(query?: EventQueryDto): Promise<IEvent[]> {
+    const where = this.buildEventWhere(query);
+
     const events = await this.prisma.event.findMany({
+      where,
       include: {
         ...this.eventWithOrganizer,
         ...this.eventWithVenue,
@@ -190,11 +261,62 @@ export class EventService {
     });
   }
 
+  private async syncEventImagesAfterUpdate(
+    eventId: string,
+    keptUrls: string[] | undefined,
+    newFiles: Express.Multer.File[],
+  ): Promise<void> {
+    const bucket = this.supabase.getClient().storage.from('event-images');
+    const kept = keptUrls ?? [];
+
+    const { data: existing, error: listErr } = await bucket.list(eventId);
+    if (listErr) {
+      throw listErr;
+    }
+
+    for (const item of existing ?? []) {
+      const path = `${eventId}/${item.name}`;
+      const { data: pub } = bucket.getPublicUrl(path);
+      const publicUrl = pub.publicUrl;
+      const stillKept = kept.some(
+        (u) =>
+          u === publicUrl ||
+          u.endsWith(`/${item.name}`) ||
+          decodeURI(u).endsWith(`/${item.name}`),
+      );
+      if (!stillKept) {
+        const { error: rmErr } = await bucket.remove([path]);
+        if (rmErr) {
+          throw rmErr;
+        }
+      }
+    }
+
+    const { data: afterDelete, error: list2Err } = await bucket.list(eventId);
+    if (list2Err) {
+      throw list2Err;
+    }
+    const remaining = afterDelete?.length ?? 0;
+    const uploads = (newFiles ?? []).filter((f) => f?.buffer?.length);
+    const maxNew = Math.max(0, 3 - remaining);
+    const toUpload = uploads.slice(0, maxNew);
+    for (const file of toUpload) {
+      const safeBase = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `${eventId}/${randomUUID()}-${safeBase}`;
+      const { error } = await bucket.upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+      });
+      if (error) {
+        throw error;
+      }
+    }
+  }
+
   async updateEvent(
     id: string,
     updateEventDto: UpdateEventDto,
-  ): Promise<IEvent> {
-    console.log('updateEventDto:', updateEventDto);
+    files: Express.Multer.File[] = [],
+  ): Promise<any> {
     const event = await this.findEventById(id);
     if (!event) {
       throw new NotFoundException('Event not found');
@@ -209,20 +331,51 @@ export class EventService {
 
       event.venueId = event.venueId === venue.id ? event.venueId : venue.id;
     }
-    const updatedEvent = await this.prisma.event.update({
+    if (updateEventDto.organizerId) {
+      await this.assertOrganizerExists(updateEventDto.organizerId);
+    }
+
+    const data: Prisma.EventUncheckedUpdateInput = {
+      venueId: event.venueId,
+    };
+    if (updateEventDto.title !== undefined) data.title = updateEventDto.title;
+    if (updateEventDto.description !== undefined) {
+      data.description = updateEventDto.description;
+    }
+    if (updateEventDto.startDate !== undefined) {
+      data.startDate = updateEventDto.startDate;
+    }
+    if (updateEventDto.endDate !== undefined) {
+      data.endDate = updateEventDto.endDate;
+    }
+    if (updateEventDto.duration !== undefined) {
+      data.duration = updateEventDto.duration;
+    }
+    if (updateEventDto.price !== undefined) {
+      data.price = updateEventDto.price;
+    }
+    if (updateEventDto.capacity !== undefined) {
+      data.capacity = updateEventDto.capacity;
+    }
+    if (updateEventDto.organizerId !== undefined) {
+      data.organizerId = updateEventDto.organizerId;
+    }
+
+    await this.prisma.event.update({
       where: { id },
-      data: {
-        title: updateEventDto.title,
-        description: updateEventDto.description,
-        startDate: updateEventDto.startDate,
-        duration: updateEventDto.duration,
-        price: updateEventDto.price,
-        capacity: updateEventDto.capacity,
-        organizerId: updateEventDto.organizerId,
-        venueId: event.venueId,
-      },
+      data,
     });
 
-    return updatedEvent;
+    const shouldSyncImages =
+      updateEventDto.imageUrls !== undefined || (files && files.length > 0);
+    if (shouldSyncImages) {
+      await this.syncEventImagesAfterUpdate(
+        id,
+        updateEventDto.imageUrls,
+        files ?? [],
+      );
+    }
+
+    return this.findEventById(id);
   }
 }
